@@ -1,0 +1,11 @@
+@ScoreForge.Api_HostAddress = http://localhost:5033
+
+GET {{ScoreForge.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+
+GET {{ScoreForge.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -23,7 +23,7 @@
 
 #### General
 - Use C# 14
-- Root C# namespace is Dadstart.Labs.ScoreFoege
+- Root C# namespace is Dadstart.Labs.ScoreForge
 - Do not add copyright file headers to C# files
 - Do not use StyleCop
 - Do not use `this.` when unneeded
