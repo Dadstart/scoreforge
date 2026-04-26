@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ScoreForge.Api/ScoreForge.Api.csproj" />
+    <Project Path="src/ScoreForge.Client/ScoreForge.Client.csproj" />
+    <Project Path="src/ScoreForge.Contracts/ScoreForge.Contracts.csproj" />
+  </Folder>
+</Solution>
