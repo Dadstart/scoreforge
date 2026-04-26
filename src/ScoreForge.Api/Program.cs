@@ -1,4 +1,6 @@
 using Dadstart.Labs.ScoreForge.Api.Data;
+using Dadstart.Labs.ScoreForge.Api.Repositories;
+using Dadstart.Labs.ScoreForge.Api.Services;
 using Dadstart.Labs.ScoreForge.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +13,8 @@ builder.Services.AddDbContext<ScoreForgeDbContext>(options =>
 
     options.UseSqlite(connectionString);
 });
+builder.Services.AddScoped<IScoreboardRepository, EfScoreboardRepository>();
+builder.Services.AddScoped<IScoreboardService, ScoreboardService>();
 
 var app = builder.Build();
 
@@ -32,17 +36,10 @@ app.MapGet("/api/health", () => Results.Ok(new
     UtcNow = DateTimeOffset.UtcNow
 }));
 
-app.MapGet("/api/foundation/scoreboards", async (ScoreForgeDbContext dbContext, CancellationToken cancellationToken) =>
+app.MapGet("/api/foundation/scoreboards", async (IScoreboardService scoreboardService, CancellationToken cancellationToken) =>
 {
-    var summaries = await dbContext.Scoreboards
-        .AsNoTracking()
-        .OrderByDescending(x => x.UpdatedAtUtc)
-        .Select(x => new ScoreboardSummary(
-            x.ScoreboardId,
-            x.Name,
-            x.Version,
-            x.UpdatedAtUtc))
-        .ToListAsync(cancellationToken)
+    var summaries = await scoreboardService
+        .GetFoundationScoreboardsAsync(cancellationToken)
         .ConfigureAwait(false);
 
     return Results.Ok(summaries);
