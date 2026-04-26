@@ -1,7 +1,16 @@
+using Dadstart.Labs.ScoreForge.Api.Data;
 using Dadstart.Labs.ScoreForge.Contracts;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<ScoreForgeDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("ScoreForgeDb")
+                           ?? "Data Source=scoreforge.db";
+
+    options.UseSqlite(connectionString);
+});
 
 var app = builder.Build();
 
@@ -10,11 +19,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var sample = new ScoreboardSummary(
-    Guid.Parse("A09B8E7B-7428-4577-B1DF-4A7E9AA16E59"),
-    "Starter Match",
-    0,
-    DateTimeOffset.UtcNow);
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ScoreForgeDbContext>();
+    await ScoreForgeDbInitializer.InitializeAsync(dbContext).ConfigureAwait(false);
+}
 
 app.MapGet("/api/health", () => Results.Ok(new
 {
@@ -23,6 +32,20 @@ app.MapGet("/api/health", () => Results.Ok(new
     UtcNow = DateTimeOffset.UtcNow
 }));
 
-app.MapGet("/api/foundation/scoreboards", () => Results.Ok(new[] { sample }));
+app.MapGet("/api/foundation/scoreboards", async (ScoreForgeDbContext dbContext, CancellationToken cancellationToken) =>
+{
+    var summaries = await dbContext.Scoreboards
+        .AsNoTracking()
+        .OrderByDescending(x => x.UpdatedAtUtc)
+        .Select(x => new ScoreboardSummary(
+            x.ScoreboardId,
+            x.Name,
+            x.Version,
+            x.UpdatedAtUtc))
+        .ToListAsync(cancellationToken)
+        .ConfigureAwait(false);
+
+    return Results.Ok(summaries);
+});
 
 app.Run();

@@ -58,3 +58,8 @@ nunit-*.xml
 
 # Bootstrap, others
 lib/
+
+# Local database files
+*.db
+*.db-shm
+*.db-wal
