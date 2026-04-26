@@ -1,0 +1,68 @@
+@page "/login"
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Sign in</PageTitle>
+
+<h1>Sign in</h1>
+
+@if (isLoading)
+{
+    <p class="text-muted">Checking authentication providers...</p>
+}
+else
+{
+    <p>Use one of the configured providers to access your scoreboards.</p>
+
+    @if (providers.Count == 0)
+    {
+        <div class="alert alert-warning">
+            No external providers are configured yet. Add provider credentials to API configuration.
+        </div>
+    }
+    else
+    {
+        <div class="d-flex gap-2">
+            @foreach (var provider in providers)
+            {
+                <button class="btn btn-primary" @onclick="() => SignIn(provider.Scheme)">
+                    Continue with @provider.DisplayName
+                </button>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">@errorMessage</div>
+    }
+}
+
+@code {
+    private readonly List<AuthProviderSummary> providers = [];
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var available = await AuthApiClient.GetProvidersAsync();
+            providers.AddRange(available.Where(x => x.Configured));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load providers: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SignIn(string scheme)
+    {
+        var returnUrl = Uri.EscapeDataString(NavigationManager.ToBaseRelativePath(NavigationManager.Uri));
+        NavigationManager.NavigateTo($"/api/auth/login/{scheme}?returnUrl=/{returnUrl}", true);
+    }
+}
