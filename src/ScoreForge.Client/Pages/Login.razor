@@ -1,5 +1,6 @@
 @page "/login"
 @inject AuthApiClient AuthApiClient
+@inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
 
 <PageTitle>Sign in</PageTitle>
@@ -62,7 +63,9 @@ else
 
     private void SignIn(string scheme)
     {
-        var returnUrl = Uri.EscapeDataString(NavigationManager.ToBaseRelativePath(NavigationManager.Uri));
-        NavigationManager.NavigateTo($"/api/auth/login/{scheme}?returnUrl=/{returnUrl}", true);
+        var clientHomeUrl = NavigationManager.BaseUri;
+        var returnUrl = Uri.EscapeDataString(clientHomeUrl);
+        var loginUri = new Uri(HttpClient.BaseAddress!, $"/api/auth/login/{scheme}?returnUrl={returnUrl}");
+        NavigationManager.NavigateTo(loginUri.ToString(), true);
     }
 }

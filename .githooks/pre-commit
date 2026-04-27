@@ -1,0 +1,14 @@
+#!/usr/bin/env pwsh
+
+$ErrorActionPreference = "Stop"
+
+pwsh -NoProfile -ExecutionPolicy Bypass -File "./scripts/check-secrets.ps1" -StagedOnly
+if ($LASTEXITCODE -ne 0)
+{
+    Write-Host ""
+    Write-Host "Commit blocked by secret scanner."
+    Write-Host "Move sensitive values to user-secrets or environment variables."
+    exit $LASTEXITCODE
+}
+
+exit 0

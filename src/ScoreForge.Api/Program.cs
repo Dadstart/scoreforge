@@ -12,6 +12,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 var authOptions = new AuthProviderOptions();
 builder.Configuration.GetSection(AuthProviderOptions.SectionName).Bind(authOptions);
+var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                         ?? ["https://localhost:7150", "http://localhost:5234"];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ClientApp", policy =>
+    {
+        policy.WithOrigins(allowedCorsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
 builder.Services
     .AddAuthentication(options =>
@@ -62,6 +75,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseHttpsRedirection();
+app.UseCors("ClientApp");
 app.UseAuthentication();
 app.UseAuthorization();
 

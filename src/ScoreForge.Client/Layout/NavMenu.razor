@@ -1,5 +1,5 @@
 ﻿@inject NavigationManager NavigationManager
-@inject HttpClient HttpClient
+@inject AuthApiClient AuthApiClient
 @inject ApiAuthenticationStateProvider AuthenticationStateProvider
 
 <div class="top-row ps-3 navbar navbar-dark">
@@ -59,7 +59,7 @@
 
     private async Task SignOutAsync()
     {
-        await HttpClient.PostAsync("/api/auth/logout", null);
+        await AuthApiClient.LogoutAsync();
         AuthenticationStateProvider.NotifyAuthenticationStateChanged();
         NavigationManager.NavigateTo("/", true);
     }

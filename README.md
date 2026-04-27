@@ -33,3 +33,27 @@ Set provider credentials in `src/ScoreForge.Api/appsettings.Development.json`:
 - `Authentication:Google:ClientSecret`
 - `Authentication:Microsoft:ClientId`
 - `Authentication:Microsoft:ClientSecret`
+
+For local development, prefer user secrets so credentials are never committed:
+
+```powershell
+dotnet user-secrets init --project .\src\ScoreForge.Api\ScoreForge.Api.csproj
+dotnet user-secrets set "Authentication:Google:ClientId" "<google-client-id>" --project .\src\ScoreForge.Api\ScoreForge.Api.csproj
+dotnet user-secrets set "Authentication:Google:ClientSecret" "<google-client-secret>" --project .\src\ScoreForge.Api\ScoreForge.Api.csproj
+```
+
+## Secret commit guard
+
+A lightweight pre-commit scanner is included to catch common secret patterns in staged files.
+
+One-time setup in this repo:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+Manual scan command:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-secrets.ps1 -StagedOnly
+```
