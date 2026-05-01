@@ -52,17 +52,51 @@
 
                         @for (var segmentIndex = 0; segmentIndex < SegmentCount; segmentIndex++)
                         {
-                            var segment = GetSegmentHoles(segmentIndex);
+                            var segmentGroups = GetSegmentHoleGroups(segmentIndex);
                             <div class="hole-row">
-                                @foreach (var hole in segment)
+                                @if (segmentIndex == 0)
                                 {
-                                    var cssClass = GetHoleCssClass(currentPlayerIndex, hole);
+                                    var startHoleCssClass = GetHoleCssClass(currentPlayerIndex, 0);
                                     <button type="button"
-                                            class="@cssClass"
-                                            title="@GetHoleTitle(currentPlayerIndex, hole)"
-                                            aria-label="@GetHoleTitle(currentPlayerIndex, hole)"
-                                            @onclick="() => MovePegTo(currentPlayerIndex, hole)">
+                                            class="@($"{startHoleCssClass} board-hole-edge")"
+                                            title="@GetHoleTitle(currentPlayerIndex, 0)"
+                                            aria-label="@GetHoleTitle(currentPlayerIndex, 0)"
+                                            @onclick="() => MovePegTo(currentPlayerIndex, 0)">
                                     </button>
+                                }
+
+                                @for (var groupIndex = 0; groupIndex < segmentGroups.Count; groupIndex++)
+                                {
+                                    var group = segmentGroups[groupIndex];
+                                    <div class="hole-group">
+                                        @foreach (var hole in group)
+                                        {
+                                            var cssClass = GetHoleCssClass(currentPlayerIndex, hole);
+                                            <button type="button"
+                                                    class="@cssClass"
+                                                    title="@GetHoleTitle(currentPlayerIndex, hole)"
+                                                    aria-label="@GetHoleTitle(currentPlayerIndex, hole)"
+                                                    @onclick="() => MovePegTo(currentPlayerIndex, hole)">
+                                            </button>
+                                        }
+                                    </div>
+                                }
+
+                                @if (segmentIndex == SegmentCount - 1)
+                                {
+                                    var finishHoleCssClass = GetHoleCssClass(currentPlayerIndex, WinningScore);
+                                    <button type="button"
+                                            class="@($"{finishHoleCssClass} board-hole-edge")"
+                                            title="@GetHoleTitle(currentPlayerIndex, WinningScore)"
+                                            aria-label="@GetHoleTitle(currentPlayerIndex, WinningScore)"
+                                            @onclick="() => MovePegTo(currentPlayerIndex, WinningScore)">
+                                    </button>
+                                }
+                            </div>
+                            <div class="segment-label-row" aria-hidden="true">
+                                @foreach (var label in GetSegmentLabels(segmentIndex))
+                                {
+                                    <span class="segment-label">@label</span>
                                 }
                             </div>
                         }
@@ -107,7 +141,8 @@
     private const int WinningScore = 121;
     private const int MaxEntriesToKeep = 25;
     private const int SegmentSize = 30;
-    private const int SegmentCount = 5;
+    private const int SegmentCount = 4;
+    private const int HoleGroupSize = 5;
 
     private readonly string[] _players = ["Player 1", "Player 2"];
     private readonly int[] _scores = [0, 0];
@@ -132,10 +167,24 @@
 
     private IEnumerable<int> GetSegmentHoles(int segmentIndex)
     {
-        var start = segmentIndex * SegmentSize;
-        var end = Math.Min(WinningScore, start + SegmentSize);
-        var holes = Enumerable.Range(start, (end - start) + 1);
-        return segmentIndex % 2 == 0 ? holes : holes.Reverse();
+        var start = (segmentIndex * SegmentSize) + 1;
+        var holes = Enumerable.Range(start, SegmentSize);
+        var shouldReverse = (segmentIndex % 2 == 1) && segmentIndex != SegmentCount - 1;
+        return shouldReverse ? holes.Reverse() : holes;
+    }
+
+    private IReadOnlyList<int[]> GetSegmentHoleGroups(int segmentIndex)
+    {
+        var segment = GetSegmentHoles(segmentIndex);
+        return segment.Chunk(HoleGroupSize).ToArray();
+    }
+
+    private IReadOnlyList<string> GetSegmentLabels(int segmentIndex)
+    {
+        var groups = GetSegmentHoleGroups(segmentIndex);
+        return groups
+            .Select(group => group.Last().ToString())
+            .ToArray();
     }
 
     private void MovePegTo(int playerIndex, int hole)

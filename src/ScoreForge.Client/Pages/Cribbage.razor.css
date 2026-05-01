@@ -79,9 +79,38 @@
 }
 
 .hole-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+}
+
+.hole-group {
     display: grid;
-    grid-template-columns: repeat(31, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.18rem;
+    padding: 0.15rem 0.2rem;
+    border-radius: 0.35rem;
+    background: rgba(87, 54, 18, 0.09);
+}
+
+.board-hole-edge {
+    align-self: center;
+    margin: 0 0.18rem;
+}
+
+.segment-label-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+    margin-top: -0.1rem;
+}
+
+.segment-label {
+    min-width: 3.9rem;
+    text-align: center;
+    font-size: 0.64rem;
+    font-weight: 600;
+    color: rgba(58, 37, 16, 0.75);
 }
 
 .board-hole {
