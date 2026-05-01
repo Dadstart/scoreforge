@@ -2,6 +2,17 @@
 
 Web-first game score-keeping application.
 
+## Run client and API together
+
+Use the dev script to start, check status, stop, or restart both projects:
+
+```powershell
+.\scripts\dev.ps1 -Action Start
+.\scripts\dev.ps1 -Action Status
+.\scripts\dev.ps1 -Action Stop
+.\scripts\dev.ps1 -Action Restart
+```
+
 ## Solution structure
 
 - `src/ScoreForge.Client`: Blazor WebAssembly PWA client.
