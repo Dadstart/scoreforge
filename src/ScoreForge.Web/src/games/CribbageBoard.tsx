@@ -97,21 +97,21 @@ export function CribbageBoard({ match, onAddPoints, onSetScore, onUndo, onReset 
                   <span>{seat.displayName}</span>
                   <span className={styles.laneScore}>{seat.score}</span>
                 </div>
+                <div className={styles.startPegRow}>
+                  <HoleButton
+                    playerIndex={playerIndex}
+                    hole={0}
+                    current={seat.score}
+                    previous={previousScores[seat.seatId] ?? null}
+                    winningScore={winningScore}
+                    onClick={() => onSetScore(seat.seatId, 0)}
+                  />
+                </div>
                 {Array.from({ length: SEGMENT_COUNT }, (_, segmentIndex) => {
                   const groups = getSegmentHoleGroups(segmentIndex, winningScore)
                   return (
                     <div key={segmentIndex}>
                       <div className={styles.holeRow}>
-                        {segmentIndex === 0 && (
-                          <HoleButton
-                            playerIndex={playerIndex}
-                            hole={0}
-                            current={seat.score}
-                            previous={previousScores[seat.seatId] ?? null}
-                            winningScore={winningScore}
-                            onClick={() => onSetScore(seat.seatId, 0)}
-                          />
-                        )}
                         {groups.map((group, groupIndex) => (
                           <div key={groupIndex} className={styles.holeGroup}>
                             {group.map((hole) => (
