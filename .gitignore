@@ -63,6 +63,8 @@ lib/
 *.db
 *.db-shm
 *.db-wal
+# Local HTTPS certificates (mkcert)
+.dev-certs/
 # Node
 node_modules/
 src/ScoreForge.Web/dist/

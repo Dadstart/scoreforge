@@ -22,7 +22,7 @@ Requires [Podman](https://podman.io/) / Podman Desktop (Docker Desktop is not re
 ./scripts/dev.ps1 -Action Start
 ```
 
-Open http://127.0.0.1:5173. When OAuth secrets are empty, Development exposes a **Developer** sign-in provider.
+Open http://127.0.0.1:5173 (or https with `-Https`; see [HTTPS](#https) below). When OAuth secrets are empty, Development exposes a **Developer** sign-in provider.
 
 Equivalent manual compose:
 
@@ -60,6 +60,40 @@ Register redirect URIs against the **Vite origin** (OAuth is proxied so cookies 
 | Google | `http://127.0.0.1:5173/signin-google` |
 
 Also add the `http://localhost:5173/...` variants if you browse via `localhost` instead of `127.0.0.1`.
+
+### HTTPS
+
+Local dev uses HTTPS on the API by default (`https://127.0.0.1:7016`). The Vite dev server is HTTP unless you opt in.
+
+**One-time setup** (trusts the ASP.NET dev cert and generates browser-trusted Vite certs via [mkcert](https://github.com/FiloSottile/mkcert)):
+
+```powershell
+winget install FiloSottile.mkcert   # if mkcert is not installed
+./scripts/https.ps1 -Action Setup
+```
+
+**Start with HTTPS** (SPA at `https://127.0.0.1:5173`):
+
+```powershell
+./scripts/dev.ps1 -Action Start -Https
+```
+
+Without mkcert, `-Https` uses a self-signed Vite certificate; your browser will show a one-time security warning.
+
+Update OAuth redirect URIs when using HTTPS:
+
+| Provider | Redirect URI |
+| --- | --- |
+| Microsoft | `https://127.0.0.1:5173/signin-microsoft` |
+| Google | `https://127.0.0.1:5173/signin-google` |
+
+Check certificate status:
+
+```powershell
+./scripts/https.ps1 -Action Status
+```
+
+**Production / LAN:** build the SPA (`npm run build` in `src/ScoreForge.Web`) so the API serves static files, then run `./scripts/run-remote.ps1` with a real TLS certificate bound to Kestrel (ports 443 / 8443). Configure `Networking:PublicHttpsPort` and `Networking:RedirectHttpToHttps` in `appsettings.Production.json` when HTTPS is on a non-standard port.
 
 ### Database
 

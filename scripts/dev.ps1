@@ -8,6 +8,7 @@ param(
     [string]$WebDirectory = ".\src\ScoreForge.Web",
     [string]$ApiUrl = "https://127.0.0.1:7016",
     [string]$WebUrl = "http://127.0.0.1:5173",
+    [switch]$Https,
     [int]$StartupTimeoutSeconds = 90
 )
 
@@ -57,9 +58,13 @@ function Start-WebProcess
     if (-not $npm)
         { $npm = (Get-Command npm -ErrorAction Stop).Source }
 
+    $environment = @{}
+    if ($script:UseHttps)
+        { $environment.SCOREFORGE_HTTPS = "1" }
+
     $argumentList = @("run", "dev", "--", "--host", "127.0.0.1", "--port", "5173")
-    $process = Start-Process -FilePath $npm -ArgumentList $argumentList -WorkingDirectory $webPath -PassThru -WindowStyle Normal
-    Write-Host "Web started (PID $($process.Id)): $WebUrl"
+    $process = Start-Process -FilePath $npm -ArgumentList $argumentList -WorkingDirectory $webPath -Environment $environment -PassThru -WindowStyle Normal
+    Write-Host "Web started (PID $($process.Id)): $script:WebUrl"
 }
 
 function Wait-ForHttpEndpoint
@@ -67,7 +72,8 @@ function Wait-ForHttpEndpoint
     param(
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)][string]$DisplayName,
-        [Parameter(Mandatory = $true)][int]$TimeoutSeconds
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [switch]$SkipCertificateCheck
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -75,7 +81,16 @@ function Wait-ForHttpEndpoint
     {
         try
         {
-            $null = Invoke-WebRequest -Uri $Url -SkipCertificateCheck -SkipHttpErrorCheck -Method Get -TimeoutSec 3
+            $params = @{
+                Uri = $Url
+                SkipHttpErrorCheck = $true
+                Method = 'Get'
+                TimeoutSec = 3
+            }
+            if ($SkipCertificateCheck)
+                { $params.SkipCertificateCheck = $true }
+
+            $null = Invoke-WebRequest @params
             Write-Host "$DisplayName is responding at $Url"
             return
         }
@@ -87,6 +102,12 @@ function Wait-ForHttpEndpoint
 
     throw "Timed out waiting for $DisplayName at $Url after $TimeoutSeconds seconds."
 }
+
+$script:UseHttps = $Https.IsPresent
+if ($script:UseHttps)
+    { $script:WebUrl = "https://127.0.0.1:5173" }
+else
+    { $script:WebUrl = $WebUrl }
 
 function Start-Database
 {
@@ -129,9 +150,9 @@ function Start-Projects
     Start-ApiProcess
     Start-WebProcess
     Wait-ForHttpEndpoint -Url "$ApiUrl/api/health" -DisplayName "API" -TimeoutSeconds $StartupTimeoutSeconds
-    Wait-ForHttpEndpoint -Url $WebUrl -DisplayName "Web" -TimeoutSeconds $StartupTimeoutSeconds
-    Write-Host "Opening browser at $WebUrl"
-    Start-Process -FilePath $WebUrl
+    Wait-ForHttpEndpoint -Url $script:WebUrl -DisplayName "Web" -TimeoutSeconds $StartupTimeoutSeconds -SkipCertificateCheck:($script:UseHttps)
+    Write-Host "Opening browser at $script:WebUrl"
+    Start-Process -FilePath $script:WebUrl
 }
 
 function Get-ApiProcesses
