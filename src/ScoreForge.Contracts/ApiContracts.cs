@@ -20,3 +20,13 @@ public sealed record ScoreboardSummary(
     string Name,
     int Version,
     DateTimeOffset UpdatedAtUtc);
+
+public sealed record AuthProviderSummary(
+    string Scheme,
+    string DisplayName,
+    bool Configured);
+
+public sealed record AuthUserResponse(
+    bool IsAuthenticated,
+    string? DisplayName,
+    string? Email);
