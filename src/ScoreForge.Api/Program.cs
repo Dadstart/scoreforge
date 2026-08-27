@@ -1,17 +1,28 @@
 using System.Security.Claims;
 using Dadstart.Labs.ScoreForge.Api.Auth;
 using Dadstart.Labs.ScoreForge.Api.Data;
+using Dadstart.Labs.ScoreForge.Api.Networking;
 using Dadstart.Labs.ScoreForge.Api.Repositories;
 using Dadstart.Labs.ScoreForge.Api.Services;
 using Dadstart.Labs.ScoreForge.Contracts;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 var authOptions = new AuthProviderOptions();
 builder.Configuration.GetSection(AuthProviderOptions.SectionName).Bind(authOptions);
+var networking = builder.Configuration.GetSection(NetworkingOptions.SectionName).Get<NetworkingOptions>()
+                 ?? new NetworkingOptions();
+
+builder.Services.AddHttpsRedirection(options =>
+{
+    if (networking.PublicHttpsPort is > 0)
+        options.HttpsPort = networking.PublicHttpsPort.Value;
+});
+
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
                          ?? ["https://localhost:7150", "http://localhost:5234"];
 
@@ -34,6 +45,9 @@ builder.Services
     .AddCookie(options =>
     {
         options.Cookie.Name = "scoreforge.auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.LoginPath = "/api/auth/login/google";
         options.LogoutPath = "/api/auth/logout";
     });
@@ -71,10 +85,11 @@ builder.Services.AddScoped<IScoreboardService, ScoreboardService>();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
+if (networking.RedirectHttpToHttps)
+    app.UseHttpsRedirection();
 
-app.UseHttpsRedirection();
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
 app.UseCors("ClientApp");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -151,6 +166,11 @@ app.MapGet("/api/foundation/scoreboards", async (IScoreboardService scoreboardSe
 
     return Results.Ok(summaries);
 }).RequireAuthorization();
+
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

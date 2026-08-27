@@ -6,8 +6,8 @@ param(
     [string]$Action = "Status",
     [string]$ApiProject = ".\src\ScoreForge.Api\ScoreForge.Api.csproj",
     [string]$ClientProject = ".\src\ScoreForge.Client\ScoreForge.Client.csproj",
-    [string]$ApiUrl = "https://localhost:7016",
-    [string]$ClientUrl = "https://localhost:7150",
+    [string]$ApiUrl = "http://127.0.0.1:7016",
+    [string]$ClientUrl = "http://127.0.0.1:7150",
     [int]$StartupTimeoutSeconds = 90
 )
 
@@ -36,18 +36,23 @@ function Start-ProjectProcess
 {
     param(
         [Parameter(Mandatory = $true)][string]$ProjectPath,
-        [Parameter(Mandatory = $true)][string]$Name
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$ApplicationUrl
     )
 
     $resolvedProjectPath = Resolve-ProjectPath -ProjectPath $ProjectPath
-    $arguments = @("run", "--project", "`"$resolvedProjectPath`"", "--launch-profile", "https")
+    # Avoid launchSettings.json applicationUrl (http profile uses 5033/5234, not 7016/7150).
+    $arguments = @("run", "--no-launch-profile", "--project", "`"$resolvedProjectPath`"")
     $argumentList = $arguments -join " "
+    $environment = @{
+        ASPNETCORE_URLS = $ApplicationUrl
+    }
 
-    $process = Start-Process -FilePath "dotnet" -ArgumentList $argumentList -PassThru -WindowStyle Normal
-    Write-Host "$Name started (PID $($process.Id)): dotnet $argumentList"
+    $process = Start-Process -FilePath "dotnet" -ArgumentList $argumentList -Environment $environment -PassThru -WindowStyle Normal
+    Write-Host "$Name started (PID $($process.Id)): ASPNETCORE_URLS=$ApplicationUrl dotnet $argumentList"
 }
 
-function Wait-ForHttpsEndpoint
+function Wait-ForHttpEndpoint
 {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
@@ -76,10 +81,10 @@ function Wait-ForHttpsEndpoint
 function Start-Projects
 {
     Invoke-RepoBuild
-    Start-ProjectProcess -ProjectPath $ApiProject -Name "API"
-    Start-ProjectProcess -ProjectPath $ClientProject -Name "Client"
-    Wait-ForHttpsEndpoint -Url $ApiUrl -DisplayName "API" -TimeoutSeconds $StartupTimeoutSeconds
-    Wait-ForHttpsEndpoint -Url $ClientUrl -DisplayName "Client" -TimeoutSeconds $StartupTimeoutSeconds
+    Start-ProjectProcess -ProjectPath $ApiProject -Name "API" -ApplicationUrl $ApiUrl
+    Start-ProjectProcess -ProjectPath $ClientProject -Name "Client" -ApplicationUrl $ClientUrl
+    Wait-ForHttpEndpoint -Url $ApiUrl -DisplayName "API" -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-ForHttpEndpoint -Url $ClientUrl -DisplayName "Client" -TimeoutSeconds $StartupTimeoutSeconds
 
     Write-Host "Opening browser at $ClientUrl"
     Start-Process -FilePath $ClientUrl

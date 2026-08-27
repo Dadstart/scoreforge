@@ -16,6 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="11.0.0-preview.3.26207.106" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScoreForge.Client\ScoreForge.Client.csproj" />
     <ProjectReference Include="..\ScoreForge.Contracts\ScoreForge.Contracts.csproj" />
   </ItemGroup>
 

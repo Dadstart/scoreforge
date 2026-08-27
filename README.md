@@ -13,6 +13,14 @@ Use the dev script to start, check status, stop, or restart both projects:
 .\scripts\dev.ps1 -Action Restart
 ```
 
+For **remote access** through NAT (for example WAN port 880 forwarded to this PC’s port 80 and WAN 8443 to port 443), run the **combined host** so the Blazor app and API share one origin (cookie auth works):
+
+```powershell
+.\scripts\run-remote.ps1
+```
+
+Adjust `appsettings.Production.json` if your public hostname or mapped ports differ. Configure Kestrel HTTPS with a real certificate for `score.dadstart.com` (see ASP.NET Core Kestrel endpoint certificate configuration). Register OAuth redirect URIs using your public URL and port, for example `https://score.dadstart.com:8443/signin-google`.
+
 ## Solution structure
 
 - `src/ScoreForge.Client`: Blazor WebAssembly PWA client.

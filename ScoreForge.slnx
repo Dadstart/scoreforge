@@ -4,4 +4,7 @@
     <Project Path="src/ScoreForge.Client/ScoreForge.Client.csproj" />
     <Project Path="src/ScoreForge.Contracts/ScoreForge.Contracts.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScoreForge.Api.Tests/ScoreForge.Api.Tests.csproj" />
+  </Folder>
 </Solution>
