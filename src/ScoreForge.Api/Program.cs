@@ -12,6 +12,7 @@ using Dadstart.Labs.ScoreForge.Games.Cribbage;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,16 @@ builder.Configuration.GetSection(AuthProviderOptions.SectionName).Bind(authOptio
 var networking = builder.Configuration.GetSection(NetworkingOptions.SectionName).Get<NetworkingOptions>()
                  ?? new NetworkingOptions();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // Vite proxies /api and /signin-* in Development; honor the browser-facing host for OAuth redirect URIs.
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                               | ForwardedHeaders.XForwardedProto
+                               | ForwardedHeaders.XForwardedHost;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddHttpsRedirection(options =>
 {
     if (networking.PublicHttpsPort is > 0)
@@ -28,7 +39,13 @@ builder.Services.AddHttpsRedirection(options =>
 });
 
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                         ?? ["https://localhost:5173", "http://localhost:5173"];
+                         ??
+                         [
+                             "https://localhost:5173",
+                             "http://localhost:5173",
+                             "https://127.0.0.1:5173",
+                             "http://127.0.0.1:5173"
+                         ];
 
 builder.Services.AddCors(options =>
 {
@@ -71,6 +88,7 @@ if (authOptions.Google.IsConfigured)
         options.ClientId = authOptions.Google.ClientId;
         options.ClientSecret = authOptions.Google.ClientSecret;
         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        ConfigureSpaProxiedOAuthCookies(options, builder.Environment);
         options.Events.OnCreatingTicket = context =>
         {
             context.Identity?.AddClaim(new Claim("scoreforge_provider", "Google"));
@@ -86,6 +104,7 @@ if (authOptions.Microsoft.IsConfigured)
         options.ClientId = authOptions.Microsoft.ClientId;
         options.ClientSecret = authOptions.Microsoft.ClientSecret;
         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        ConfigureSpaProxiedOAuthCookies(options, builder.Environment);
         options.Events.OnCreatingTicket = context =>
         {
             context.Identity?.AddClaim(new Claim("scoreforge_provider", "Microsoft"));
@@ -128,6 +147,8 @@ builder.Services.AddDbContext<ScoreForgeDbContext>(options =>
 });
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (networking.RedirectHttpToHttps)
     app.UseHttpsRedirection();
@@ -354,6 +375,17 @@ if (app.Environment.IsDevelopment())
 
 app.MapFallbackToFile("index.html");
 app.Run();
+
+static void ConfigureSpaProxiedOAuthCookies(RemoteAuthenticationOptions options, IHostEnvironment environment)
+{
+    if (!environment.IsDevelopment())
+        return;
+
+    // Default OAuth correlation cookies are SameSite=None + Secure, which browsers drop on the
+    // HTTP Vite origin. Lax works for the top-level OAuth callback navigation.
+    options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+}
 
 static IResult ToAppendResult(MatchAppendResult result) =>
     result.StatusCode switch

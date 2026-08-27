@@ -97,8 +97,33 @@ function Start-Database
         { throw "Failed to start database via scripts/db.ps1 (exit $LASTEXITCODE)." }
 }
 
+function Stop-ProjectProcesses
+{
+    param([switch]$Quiet)
+
+    $api = @(Get-ApiProcesses)
+    $web = @(Get-WebProcesses)
+    foreach ($process in $api)
+        { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+    foreach ($process in $web)
+        { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+
+    if (-not $Quiet)
+    {
+        if ($api.Count -eq 0 -and $web.Count -eq 0)
+            { Write-Host "No running API or Web process found." }
+        else
+            { Write-Host "Stopped API and Web processes." }
+    }
+
+    if ($api.Count -gt 0 -or $web.Count -gt 0)
+        { Start-Sleep -Milliseconds 700 }
+}
+
 function Start-Projects
 {
+    # Stop first so rebuilds are not blocked by locked DLLs from a previous API instance.
+    Stop-ProjectProcesses -Quiet
     Start-Database
     Invoke-RepoBuild
     Start-ApiProcess
@@ -153,17 +178,10 @@ switch ($Action)
         if ($api.Count -eq 0) { Write-Host "API is not running." } else { Write-Host "API PID(s): $(($api | ForEach-Object ProcessId) -join ', ')" }
         if ($web.Count -eq 0) { Write-Host "Web is not running." } else { Write-Host "Web PID(s): $(($web | ForEach-Object ProcessId) -join ', ')" }
     }
-    "Stop"
-    {
-        foreach ($process in @(Get-ApiProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
-        foreach ($process in @(Get-WebProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
-        Write-Host "Stopped API and Web processes."
-    }
+    "Stop" { Stop-ProjectProcesses }
     "Restart"
     {
-        foreach ($process in @(Get-ApiProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
-        foreach ($process in @(Get-WebProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
-        Start-Sleep -Milliseconds 700
+        Stop-ProjectProcesses
         Start-Projects
     }
 }

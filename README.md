@@ -52,6 +52,15 @@ dotnet user-secrets set "Authentication:Microsoft:ClientId" "..." --project src/
 dotnet user-secrets set "Authentication:Microsoft:ClientSecret" "..." --project src/ScoreForge.Api
 ```
 
+Register redirect URIs against the **Vite origin** (OAuth is proxied so cookies stay same-site):
+
+| Provider | Redirect URI |
+| --- | --- |
+| Microsoft | `http://127.0.0.1:5173/signin-microsoft` |
+| Google | `http://127.0.0.1:5173/signin-google` |
+
+Also add the `http://localhost:5173/...` variants if you browse via `localhost` instead of `127.0.0.1`.
+
 ### Database
 
 Default connection (matches `docker-compose.yml` / Podman Compose):
