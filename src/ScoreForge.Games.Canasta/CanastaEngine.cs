@@ -11,6 +11,7 @@ public sealed class CanastaEngine : IGameEngine
     public const int MixedCanastaPoints = 300;
     public const int RedThreePoints = 100;
     public const int GoingOutPoints = 100;
+    public const int GoingOutBlindPoints = 200;
 
     public string GameId => GameIds.Canasta;
 
@@ -97,8 +98,18 @@ public sealed class CanastaEngine : IGameEngine
         (side.NaturalCanastas * NaturalCanastaPoints) +
         (side.MixedCanastas * MixedCanastaPoints) +
         (side.RedThrees * RedThreePoints) +
-        (side.GoingOut ? GoingOutPoints : 0) -
+        GoingOutBonus(side) -
         side.CountsAgainst;
+
+    public static int GoingOutBonus(RoundSideScore side) =>
+        side switch
+        {
+            { GoingOutBlind: true } => GoingOutBlindPoints,
+            { GoingOut: true } => GoingOutPoints,
+            _ => 0
+        };
+
+    private static bool IsGoingOut(RoundSideScore side) => side.GoingOut || side.GoingOutBlind;
 
     private static CanastaStateData ApplySubmitRound(
         CanastaStateData data,
@@ -110,7 +121,7 @@ public sealed class CanastaEngine : IGameEngine
         if (payload.Sides.Count != teams.Count)
             throw new GameEngineException("Round must include a score for every team.");
 
-        if (payload.Sides.Count(s => s.GoingOut) > 1)
+        if (payload.Sides.Count(IsGoingOut) > 1)
             throw new GameEngineException("Only one side may go out in a round.");
 
         var teamScores = data.TeamScores.ToDictionary(t => t.TeamId, t => t.Score);
@@ -132,7 +143,8 @@ public sealed class CanastaEngine : IGameEngine
                 side.NaturalCanastas,
                 side.MixedCanastas,
                 side.RedThrees,
-                side.GoingOut,
+                IsGoingOut(side),
+                side.GoingOutBlind,
                 side.CountsAgainst,
                 roundScore));
         }
@@ -187,6 +199,7 @@ public sealed class CanastaEngine : IGameEngine
         int MixedCanastas,
         int RedThrees,
         bool GoingOut,
+        bool GoingOutBlind,
         int CountsAgainst,
         int RoundScore);
 
@@ -197,7 +210,8 @@ public sealed class CanastaEngine : IGameEngine
         int MixedCanastas,
         int RedThrees,
         bool GoingOut,
-        int CountsAgainst);
+        int CountsAgainst,
+        bool GoingOutBlind = false);
 
     private sealed record SubmitRoundPayload(IReadOnlyList<RoundSideScore> Sides);
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import type { CanastaGoingOutChoice } from '../api/canastaMath'
 import type { MatchSnapshot } from '../types/api'
 
 type SideDraft = {
@@ -8,6 +9,7 @@ type SideDraft = {
   mixedCanastas: number
   redThrees: number
   goingOut: boolean
+  goingOutBlind: boolean
   countsAgainst: number
 }
 
@@ -19,8 +21,21 @@ function emptySide(teamId: string): SideDraft {
     mixedCanastas: 0,
     redThrees: 0,
     goingOut: false,
+    goingOutBlind: false,
     countsAgainst: 0,
   }
+}
+
+function goingOutChoice(side: SideDraft): CanastaGoingOutChoice {
+  if (side.goingOutBlind)
+    return 'blind'
+  if (side.goingOut)
+    return 'normal'
+  return 'none'
+}
+
+function isGoingOutPatch(patch: Partial<SideDraft>) {
+  return Boolean(patch.goingOut || patch.goingOutBlind)
 }
 
 type Props = {
@@ -55,10 +70,17 @@ export function CanastaScoresheet({ match, onSubmitRound, onUndo, onReset }: Pro
     setDrafts((current) =>
       current.map((side) => {
         if (side.teamId !== teamId)
-          return patch.goingOut ? { ...side, goingOut: false } : side
+          return isGoingOutPatch(patch) ? { ...side, goingOut: false, goingOutBlind: false } : side
         return { ...side, ...patch }
       }),
     )
+  }
+
+  function setGoingOut(teamId: string, choice: CanastaGoingOutChoice) {
+    updateDraft(teamId, {
+      goingOut: choice !== 'none',
+      goingOutBlind: choice === 'blind',
+    })
   }
 
   function onSubmit(event: FormEvent) {
@@ -137,13 +159,17 @@ export function CanastaScoresheet({ match, onSubmitRound, onUndo, onReset }: Pro
                   value={side.countsAgainst}
                   onChange={(countsAgainst) => updateDraft(side.teamId, { countsAgainst })}
                 />
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={side.goingOut}
-                    onChange={(e) => updateDraft(side.teamId, { goingOut: e.target.checked })}
-                  />
-                  Going out (+100)
+                <label className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-300">Going out</span>
+                  <select
+                    className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1"
+                    value={goingOutChoice(side)}
+                    onChange={(e) => setGoingOut(side.teamId, e.target.value as CanastaGoingOutChoice)}
+                  >
+                    <option value="none">Not going out</option>
+                    <option value="normal">Going out (+100)</option>
+                    <option value="blind">Going out blind (+200)</option>
+                  </select>
                 </label>
               </div>
             )

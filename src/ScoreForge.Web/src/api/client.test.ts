@@ -22,4 +22,18 @@ describe('canasta round math', () => {
       }),
     ).toBe(900)
   })
+
+  it('awards 200 for going out blind', () => {
+    expect(
+      CanastaEngineRoundScore({
+        cardPoints: 50,
+        naturalCanastas: 0,
+        mixedCanastas: 0,
+        redThrees: 0,
+        goingOut: true,
+        goingOutBlind: true,
+        countsAgainst: 0,
+      }),
+    ).toBe(250)
+  })
 })
