@@ -63,3 +63,8 @@ lib/
 *.db
 *.db-shm
 *.db-wal
+# Node
+node_modules/
+src/ScoreForge.Web/dist/
+src/ScoreForge.Api/wwwroot/
+

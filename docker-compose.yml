@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: scoreforge
+      POSTGRES_PASSWORD: scoreforge
+      POSTGRES_DB: scoreforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - scoreforge_pg:/var/lib/postgresql/data
+
+volumes:
+  scoreforge_pg:

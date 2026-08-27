@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  Runs ScoreForge.Api as a single host (Blazor WASM + minimal API) for LAN/internet access.
+  Runs ScoreForge.Api as a single host (React SPA + minimal API + SignalR) for LAN/internet access.
 
 .DESCRIPTION
   Binds to all interfaces (0.0.0.0) so port forwarding to this machine works.

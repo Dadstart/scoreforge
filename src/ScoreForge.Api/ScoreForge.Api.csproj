@@ -6,22 +6,39 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Dadstart.Labs.ScoreForge.Api</RootNamespace>
     <UserSecretsId>51bb9291-85ff-4f7a-9c36-300603713aaf</UserSecretsId>
+    <SpaRoot>..\ScoreForge.Web</SpaRoot>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="11.0.0-preview.3.26207.106" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="11.0.0-preview.3.26207.106" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.3.26207.106" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0-preview.3.26207.106" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="11.0.0-preview.6.26359.118" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="11.0.0-preview.6.26359.118" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.6.26359.118" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="11.0.0-preview.6.26359.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0-preview.6.26359.118" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0-preview.6" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="11.0.0-preview.3.26207.106" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\ScoreForge.Client\ScoreForge.Client.csproj" />
     <ProjectReference Include="..\ScoreForge.Contracts\ScoreForge.Contracts.csproj" />
+    <ProjectReference Include="..\ScoreForge.Games.Abstractions\ScoreForge.Games.Abstractions.csproj" />
+    <ProjectReference Include="..\ScoreForge.Games.Cribbage\ScoreForge.Games.Cribbage.csproj" />
+    <ProjectReference Include="..\ScoreForge.Games.Canasta\ScoreForge.Games.Canasta.csproj" />
   </ItemGroup>
+
+  <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm ci" Condition="Exists('$(SpaRoot)\package-lock.json')" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" Condition="!Exists('$(SpaRoot)\package-lock.json')" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+    <ItemGroup>
+      <DistFiles Include="$(SpaRoot)\dist\**" />
+      <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

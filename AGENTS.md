@@ -17,7 +17,7 @@
 
 ### dotnet
 
-- Use dotnet 11
+- Use dotnet 11 (preview 6; see `global.json`)
 
 ### C#
 

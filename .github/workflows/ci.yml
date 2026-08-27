@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "feat/**", "react-new"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "11.0.100-preview.6.26359.118"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: src/ScoreForge.Web/package-lock.json
+
+      - name: Restore and build
+        run: dotnet build --configuration Release
+
+      - name: Format check
+        run: dotnet format --verify-no-changes
+
+      - name: Test .NET
+        run: dotnet test --configuration Release --no-build
+
+      - name: Install web dependencies
+        working-directory: src/ScoreForge.Web
+        run: npm ci
+
+      - name: Lint web
+        working-directory: src/ScoreForge.Web
+        run: npm run lint
+
+      - name: Test web
+        working-directory: src/ScoreForge.Web
+        run: npm test
+
+      - name: Build web
+        working-directory: src/ScoreForge.Web
+        run: npm run build

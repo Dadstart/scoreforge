@@ -5,23 +5,28 @@ param(
     [ValidateSet("Start", "Stop", "Restart", "Status")]
     [string]$Action = "Status",
     [string]$ApiProject = ".\src\ScoreForge.Api\ScoreForge.Api.csproj",
-    [string]$ClientProject = ".\src\ScoreForge.Client\ScoreForge.Client.csproj",
-    [string]$ApiUrl = "http://127.0.0.1:7016",
-    [string]$ClientUrl = "http://127.0.0.1:7150",
+    [string]$WebDirectory = ".\src\ScoreForge.Web",
+    [string]$ApiUrl = "https://127.0.0.1:7016",
+    [string]$WebUrl = "http://127.0.0.1:5173",
     [int]$StartupTimeoutSeconds = 90
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 
-function Resolve-ProjectPath
+# Prefer the user-local preview.6 SDK when present (see global.json).
+$localDotnet = Join-Path $env:LOCALAPPDATA "dotnet"
+if (Test-Path -LiteralPath (Join-Path $localDotnet "dotnet.exe"))
+    { $env:PATH = "$localDotnet;$env:PATH" }
+
+function Resolve-RepoPath
 {
-    param([Parameter(Mandatory = $true)][string]$ProjectPath)
+    param([Parameter(Mandatory = $true)][string]$Path)
 
-    if ([IO.Path]::IsPathRooted($ProjectPath))
-        { return (Resolve-Path -LiteralPath $ProjectPath).Path }
+    if ([IO.Path]::IsPathRooted($Path))
+        { return (Resolve-Path -LiteralPath $Path).Path }
 
-    return (Resolve-Path -LiteralPath (Join-Path $repoRoot $ProjectPath)).Path
+    return (Resolve-Path -LiteralPath (Join-Path $repoRoot $Path)).Path
 }
 
 function Invoke-RepoBuild
@@ -32,24 +37,29 @@ function Invoke-RepoBuild
         { throw "Build failed with exit code $LASTEXITCODE." }
 }
 
-function Start-ProjectProcess
+function Start-ApiProcess
 {
-    param(
-        [Parameter(Mandatory = $true)][string]$ProjectPath,
-        [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][string]$ApplicationUrl
-    )
-
-    $resolvedProjectPath = Resolve-ProjectPath -ProjectPath $ProjectPath
-    # Avoid launchSettings.json applicationUrl (http profile uses 5033/5234, not 7016/7150).
-    $arguments = @("run", "--no-launch-profile", "--project", "`"$resolvedProjectPath`"")
-    $argumentList = $arguments -join " "
+    $resolvedProjectPath = Resolve-RepoPath -Path $ApiProject
+    $argumentList = "run --no-launch-profile --project `"$resolvedProjectPath`""
     $environment = @{
-        ASPNETCORE_URLS = $ApplicationUrl
+        ASPNETCORE_URLS = $ApiUrl
+        ASPNETCORE_ENVIRONMENT = "Development"
     }
 
     $process = Start-Process -FilePath "dotnet" -ArgumentList $argumentList -Environment $environment -PassThru -WindowStyle Normal
-    Write-Host "$Name started (PID $($process.Id)): ASPNETCORE_URLS=$ApplicationUrl dotnet $argumentList"
+    Write-Host "API started (PID $($process.Id)): ASPNETCORE_URLS=$ApiUrl"
+}
+
+function Start-WebProcess
+{
+    $webPath = Resolve-RepoPath -Path $WebDirectory
+    $npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue)?.Source
+    if (-not $npm)
+        { $npm = (Get-Command npm -ErrorAction Stop).Source }
+
+    $argumentList = @("run", "dev", "--", "--host", "127.0.0.1", "--port", "5173")
+    $process = Start-Process -FilePath $npm -ArgumentList $argumentList -WorkingDirectory $webPath -PassThru -WindowStyle Normal
+    Write-Host "Web started (PID $($process.Id)): $WebUrl"
 }
 
 function Wait-ForHttpEndpoint
@@ -78,23 +88,30 @@ function Wait-ForHttpEndpoint
     throw "Timed out waiting for $DisplayName at $Url after $TimeoutSeconds seconds."
 }
 
-function Start-Projects
+function Start-Database
 {
-    Invoke-RepoBuild
-    Start-ProjectProcess -ProjectPath $ApiProject -Name "API" -ApplicationUrl $ApiUrl
-    Start-ProjectProcess -ProjectPath $ClientProject -Name "Client" -ApplicationUrl $ClientUrl
-    Wait-ForHttpEndpoint -Url $ApiUrl -DisplayName "API" -TimeoutSeconds $StartupTimeoutSeconds
-    Wait-ForHttpEndpoint -Url $ClientUrl -DisplayName "Client" -TimeoutSeconds $StartupTimeoutSeconds
-
-    Write-Host "Opening browser at $ClientUrl"
-    Start-Process -FilePath $ClientUrl
+    $dbScript = Join-Path $PSScriptRoot "db.ps1"
+    Write-Host "Ensuring PostgreSQL is running (Podman)..."
+    & $dbScript -Action Start
+    if ($LASTEXITCODE -ne 0)
+        { throw "Failed to start database via scripts/db.ps1 (exit $LASTEXITCODE)." }
 }
 
-function Get-ProjectDotnetProcesses
+function Start-Projects
 {
-    param([Parameter(Mandatory = $true)][string]$ProjectPath)
+    Start-Database
+    Invoke-RepoBuild
+    Start-ApiProcess
+    Start-WebProcess
+    Wait-ForHttpEndpoint -Url "$ApiUrl/api/health" -DisplayName "API" -TimeoutSeconds $StartupTimeoutSeconds
+    Wait-ForHttpEndpoint -Url $WebUrl -DisplayName "Web" -TimeoutSeconds $StartupTimeoutSeconds
+    Write-Host "Opening browser at $WebUrl"
+    Start-Process -FilePath $WebUrl
+}
 
-    $resolvedProjectPath = (Resolve-ProjectPath -ProjectPath $ProjectPath).ToLowerInvariant()
+function Get-ApiProcesses
+{
+    $resolvedProjectPath = (Resolve-RepoPath -Path $ApiProject).ToLowerInvariant()
     $escapedProjectPath = [Regex]::Escape($resolvedProjectPath)
     $dotnetProcesses = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'dotnet.exe'"
 
@@ -111,91 +128,42 @@ function Get-ProjectDotnetProcesses
         }
 }
 
-function Show-ProjectStatus
+function Get-WebProcesses
 {
-    param(
-        [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][string]$ProjectPath
-    )
+    $webPath = (Resolve-RepoPath -Path $WebDirectory).ToLowerInvariant()
+    $nodeProcesses = Get-CimInstance -ClassName Win32_Process -Filter "Name = 'node.exe'"
+    return $nodeProcesses |
+        Where-Object {
+            $commandLine = $_.CommandLine
+            if ([string]::IsNullOrWhiteSpace($commandLine))
+                { return $false }
 
-    $processes = @(Get-ProjectDotnetProcesses -ProjectPath $ProjectPath)
-    if ($processes.Count -eq 0)
-    {
-        Write-Host "$Name is not running."
-        return
-    }
-
-    $processIds = ($processes | ForEach-Object { $_.ProcessId }) -join ", "
-    Write-Host "$Name is running. PID(s): $processIds"
-}
-
-function Stop-ProjectProcesses
-{
-    param(
-        [Parameter(Mandatory = $true)][string]$Name,
-        [Parameter(Mandatory = $true)][string]$ProjectPath
-    )
-
-    $processes = @(Get-ProjectDotnetProcesses -ProjectPath $ProjectPath)
-    if ($processes.Count -eq 0)
-    {
-        Write-Host "No running $Name process found."
-        return
-    }
-
-    $processIds = @($processes | ForEach-Object { [int]$_.ProcessId } | Sort-Object -Unique)
-    Write-Host "Stopping $Name process(es): $($processIds -join ', ')"
-
-    foreach ($processId in $processIds)
-    {
-        try
-        {
-            Stop-Process -Id $processId -ErrorAction Stop
+            return $commandLine.ToLowerInvariant().Contains("vite") -and
+                $commandLine.ToLowerInvariant().Contains($webPath)
         }
-        catch
-        {
-            Write-Warning "Graceful stop failed for PID $processId ($Name): $($_.Exception.Message)"
-        }
-    }
-
-    Start-Sleep -Milliseconds 700
-
-    foreach ($processId in $processIds)
-    {
-        $remaining = Get-Process -Id $processId -ErrorAction SilentlyContinue
-        if (-not $remaining)
-            { continue }
-
-        Write-Host "Force stopping $Name process PID $processId"
-        Stop-Process -Id $processId -Force -ErrorAction Stop
-    }
-}
-
-function Restart-Projects
-{
-    Start-Projects
 }
 
 switch ($Action)
 {
-    "Start"
-    {
-        Start-Projects
-    }
+    "Start" { Start-Projects }
     "Status"
     {
-        Show-ProjectStatus -Name "API" -ProjectPath $ApiProject
-        Show-ProjectStatus -Name "Client" -ProjectPath $ClientProject
+        $api = @(Get-ApiProcesses)
+        $web = @(Get-WebProcesses)
+        if ($api.Count -eq 0) { Write-Host "API is not running." } else { Write-Host "API PID(s): $(($api | ForEach-Object ProcessId) -join ', ')" }
+        if ($web.Count -eq 0) { Write-Host "Web is not running." } else { Write-Host "Web PID(s): $(($web | ForEach-Object ProcessId) -join ', ')" }
     }
     "Stop"
     {
-        Stop-ProjectProcesses -Name "API" -ProjectPath $ApiProject
-        Stop-ProjectProcesses -Name "Client" -ProjectPath $ClientProject
+        foreach ($process in @(Get-ApiProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+        foreach ($process in @(Get-WebProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+        Write-Host "Stopped API and Web processes."
     }
     "Restart"
     {
-        Stop-ProjectProcesses -Name "API" -ProjectPath $ApiProject
-        Stop-ProjectProcesses -Name "Client" -ProjectPath $ClientProject
-        Restart-Projects
+        foreach ($process in @(Get-ApiProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+        foreach ($process in @(Get-WebProcesses)) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }
+        Start-Sleep -Milliseconds 700
+        Start-Projects
     }
 }

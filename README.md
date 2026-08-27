@@ -1,78 +1,84 @@
 # ScoreForge
 
-Web-first game score-keeping application.
+Web-first game scorekeeping for Cribbage, American Canasta, and more.
 
-## Run client and API together
+## Stack
 
-Use the dev script to start, check status, stop, or restart both projects:
+- **API:** ASP.NET Core (.NET 11 preview 6), cookie OAuth (Google / Microsoft), SignalR, EF Core
+- **Client:** React + Redux Toolkit + Tailwind (Vite)
+- **Database:** PostgreSQL via **Podman** Compose (Npgsql). Unit tests use SQLite.
 
-```powershell
-.\scripts\dev.ps1 -Action Start
-.\scripts\dev.ps1 -Action Status
-.\scripts\dev.ps1 -Action Stop
-.\scripts\dev.ps1 -Action Restart
-```
+SDK is pinned in [`global.json`](global.json) to `11.0.100-preview.6.26359.118`.
 
-For **remote access** through NAT (for example WAN port 880 forwarded to this PC’s port 80 and WAN 8443 to port 443), run the **combined host** so the Blazor app and API share one origin (cookie auth works):
+## Quick start
 
-```powershell
-.\scripts\run-remote.ps1
-```
-
-Adjust `appsettings.Production.json` if your public hostname or mapped ports differ. Configure Kestrel HTTPS with a real certificate for `score.dadstart.com` (see ASP.NET Core Kestrel endpoint certificate configuration). Register OAuth redirect URIs using your public URL and port, for example `https://score.dadstart.com:8443/signin-google`.
-
-## Solution structure
-
-- `src/ScoreForge.Client`: Blazor WebAssembly PWA client.
-- `src/ScoreForge.Api`: Minimal API backend for auth/sync and real-time phases.
-- `src/ScoreForge.Contracts`: Shared contracts and domain records.
-
-## Phase 1 status
-
-Phase 1 foundation scaffolding is in place:
-
-- Shared domain contracts for user, game, scoreboard, participants, and events.
-- API skeleton with health and foundation endpoints.
-- Client local storage abstraction with IndexedDB implementation.
-
-## Phase 2 status
-
-Authentication plumbing is in place:
-
-- API cookie authentication with external provider hooks for Google and Microsoft.
-- Auth endpoints: `/api/auth/providers`, `/api/auth/me`, `/api/auth/login/{provider}`, `/api/auth/logout`.
-- Client auth state provider and sign-in/sign-out UX shell.
-- Foundation scoreboard endpoint requires an authenticated user.
-
-## Configure social auth locally
-
-Set provider credentials in `src/ScoreForge.Api/appsettings.Development.json`:
-
-- `Authentication:Google:ClientId`
-- `Authentication:Google:ClientSecret`
-- `Authentication:Microsoft:ClientId`
-- `Authentication:Microsoft:ClientSecret`
-
-For local development, prefer user secrets so credentials are never committed:
+Requires [Podman](https://podman.io/) / Podman Desktop (Docker Desktop is not required). Put `podman.exe` on PATH (often `%LOCALAPPDATA%\Programs\Podman`).
 
 ```powershell
-dotnet user-secrets init --project .\src\ScoreForge.Api\ScoreForge.Api.csproj
-dotnet user-secrets set "Authentication:Google:ClientId" "<google-client-id>" --project .\src\ScoreForge.Api\ScoreForge.Api.csproj
-dotnet user-secrets set "Authentication:Google:ClientSecret" "<google-client-secret>" --project .\src\ScoreForge.Api\ScoreForge.Api.csproj
+# Start Postgres (starts the Podman machine if needed)
+./scripts/db.ps1 -Action Start
+
+# Or start DB + API + Vite together:
+./scripts/dev.ps1 -Action Start
 ```
 
-## Secret commit guard
+Open http://127.0.0.1:5173. When OAuth secrets are empty, Development exposes a **Developer** sign-in provider.
 
-A lightweight pre-commit scanner is included to catch common secret patterns in staged files.
-
-One-time setup in this repo:
+Equivalent manual compose:
 
 ```powershell
-git config core.hooksPath .githooks
+podman machine start   # if the machine is stopped
+podman compose up -d
 ```
 
-Manual scan command:
+### .NET SDK
+
+If `dotnet --version` is not preview 6 after cloning:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-secrets.ps1 -StagedOnly
+irm https://dot.net/v1/dotnet-install.ps1 | iex
+# or:
+& "$env:TEMP\dotnet-install.ps1" -Version 11.0.100-preview.6.26359.118
 ```
+
+Ensure that SDK is on `PATH` (the install script defaults to `%LOCALAPPDATA%\dotnet`).
+
+### OAuth secrets
+
+```powershell
+dotnet user-secrets set "Authentication:Google:ClientId" "..." --project src/ScoreForge.Api
+dotnet user-secrets set "Authentication:Google:ClientSecret" "..." --project src/ScoreForge.Api
+dotnet user-secrets set "Authentication:Microsoft:ClientId" "..." --project src/ScoreForge.Api
+dotnet user-secrets set "Authentication:Microsoft:ClientSecret" "..." --project src/ScoreForge.Api
+```
+
+### Database
+
+Default connection (matches `docker-compose.yml` / Podman Compose):
+
+```json
+{
+  "Database": { "Provider": "Npgsql" },
+  "ConnectionStrings": {
+    "ScoreForgeDb": "Host=localhost;Port=5432;Database=scoreforge;Username=scoreforge;Password=scoreforge"
+  }
+}
+```
+
+DB helper:
+
+```powershell
+./scripts/db.ps1 -Action Start
+./scripts/db.ps1 -Action Status
+./scripts/db.ps1 -Action Stop
+```
+
+To use SQLite instead, set `"Database:Provider": "Sqlite"` and a `Data Source=...` connection string.
+
+## Features (v1)
+
+- Google / Microsoft login (plus Dev login in Development)
+- Live multi-device match sync over SignalR
+- Cribbage pegboard (61 / 121)
+- American Canasta round scoresheet (to 5000)
+- Versioned, idempotent score events with undo
