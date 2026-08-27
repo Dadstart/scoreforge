@@ -1,7 +1,13 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ScoreForge.Api/ScoreForge.Api.csproj" />
-    <Project Path="src/ScoreForge.Client/ScoreForge.Client.csproj" />
     <Project Path="src/ScoreForge.Contracts/ScoreForge.Contracts.csproj" />
+    <Project Path="src/ScoreForge.Games.Abstractions/ScoreForge.Games.Abstractions.csproj" />
+    <Project Path="src/ScoreForge.Games.Cribbage/ScoreForge.Games.Cribbage.csproj" />
+    <Project Path="src/ScoreForge.Games.Canasta/ScoreForge.Games.Canasta.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScoreForge.Api.Tests/ScoreForge.Api.Tests.csproj" />
+    <Project Path="tests/ScoreForge.Games.Tests/ScoreForge.Games.Tests.csproj" />
   </Folder>
 </Solution>
